@@ -75,8 +75,20 @@ pub const NpCtx = struct{
     }
     
     fn process_user_event(self: *NpCtx) void {
+        // Get screen size
         self.w = rl.GetScreenWidth();
         self.h = rl.GetScreenHeight();
+
+        // Get character inputs
+        var codepoint: i32 = rl.GetCharPressed();
+        while (codepoint != 0) : (codepoint = rl.GetCharPressed()) {
+            var character = [_]u8{0} ** @sizeOf(@TypeOf(codepoint));
+            if (std.unicode.utf8Encode(@intCast(codepoint), &character)) |_| {
+                std.debug.print("{s}\n", .{character});
+            } else |_| {
+                std.debug.print("Error!\n", .{});
+            }
+        }
     }
 
     fn compute(self: *NpCtx) void {
