@@ -6,7 +6,7 @@ const tst = std.testing;
 /// A null-terminated string struct to be C compatible
 pub const String = struct {
     buffer: ?[:0]u8 = null, // Be sure to be null-terminated
-    len: usize = undefined,
+    len: usize = 0,
     allocator: std.mem.Allocator,
 
     const Error = error {
@@ -54,6 +54,8 @@ pub const String = struct {
             try self.set_allocated_size(str.len);
         }
         
+        // index can't be > str.len
+        const valid_index = if (index > self.len) self.len else index;
         const new_length = self.len + str.len;
         const buffer = &self.buffer.?;
 
@@ -61,13 +63,16 @@ pub const String = struct {
             try self.set_allocated_size(new_length);
         }
  
-        // Concatenate
-        if (index >= self.len) {
-            @memcpy(buffer.*, str);
-        } else {
-            const len_to_move = self.len-index;
-            @memcpy(buffer.*[index..len_to_move], buffer.*[index+str.len..len_to_move]);
+        if (valid_index < self.len) {
+            // We need to move what's after index
+            const src_begin = valid_index;
+            const src_end = self.len;
+            const dst_begin = src_begin + str.len;
+            const dst_end = dst_begin + src_end - src_begin;
+            @memcpy(buffer.*[dst_begin..dst_end],buffer.*[src_begin..src_end]);
         }
+
+        @memcpy(buffer.*[valid_index..valid_index+str.len], str);
 
         self.len = new_length;
         buffer.*[self.len] = 0;
@@ -109,6 +114,12 @@ test "insert()" {
     var str: String = .{.allocator = std.heap.smp_allocator};
     defer str.free();
 
-    try str.insert("Hello World", 0);
+    try str.insert("Hello", 0);
+    std.debug.print("\"{s}\"\n", .{str.to_str()});
+
+    try str.insert(" World!", str.len);
+    std.debug.print("\"{s}\"\n", .{str.to_str()});
+
+    try str.insert(" Wonderful", 5);
     std.debug.print("\"{s}\"\n", .{str.to_str()});
 }
