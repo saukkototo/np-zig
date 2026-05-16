@@ -3,6 +3,9 @@ const assert = std.debug.assert;
 const tst = std.testing;
 
 
+const allocator = std.testing.allocator;
+// const allocator = std.heap.smp_allocator;
+
 /// A null-terminated string struct to be C compatible
 pub const String = struct {
     buffer: ?[:0]u8 = null, // Be sure to be null-terminated
@@ -33,7 +36,6 @@ pub const String = struct {
             if(size > 0) {
                 self.buffer.?[self.len] = 0;
             }
-
         }
     }
 
@@ -44,7 +46,7 @@ pub const String = struct {
         }
     }
 
-    pub fn to_str(self: *String) [:0]const u8 {
+    pub fn as_literal(self: *String) [:0]const u8 {
         if (self.buffer) |buffer| return buffer[0..self.len :0];
         return "";
     }
@@ -77,6 +79,10 @@ pub const String = struct {
         self.len = new_length;
         buffer.*[self.len] = 0;
     }
+
+    pub fn concat(self: *String, str: []const u8) !void {
+        try self.insert(str, self.len);
+    }
 };
 
 test "set_allocated_size()" {
@@ -84,7 +90,7 @@ test "set_allocated_size()" {
     const size_2: usize = 12;
     const size_3: usize = 3;
 
-    var str: String = .{.allocator = std.heap.smp_allocator};
+    var str: String = .{.allocator = allocator};
     defer str.free();
 
     try tst.expect(str.buffer == null);
@@ -107,19 +113,19 @@ test "set_allocated_size()" {
     try tst.expectEqual(str.buffer.?.len, size_3);
     try tst.expectEqual(str.len, 0);
 
-    std.debug.print("\"{s}\"\n", .{str.to_str()});
+    std.debug.print("\"{s}\"\n", .{str.as_literal()});
 }
 
 test "insert()" {
-    var str: String = .{.allocator = std.heap.smp_allocator};
+    var str: String = .{.allocator = allocator};
     defer str.free();
 
     try str.insert("Hello", 0);
-    std.debug.print("\"{s}\"\n", .{str.to_str()});
+    std.debug.print("\"{s}\"\n", .{str.as_literal()});
 
     try str.insert(" World!", str.len);
-    std.debug.print("\"{s}\"\n", .{str.to_str()});
+    std.debug.print("\"{s}\"\n", .{str.as_literal()});
 
     try str.insert(" Wonderful", 5);
-    std.debug.print("\"{s}\"\n", .{str.to_str()});
+    std.debug.print("\"{s}\"\n", .{str.as_literal()});
 }

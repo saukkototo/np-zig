@@ -1,5 +1,5 @@
 const npz = @import("np_zig");
 
-pub fn main() void{
-    npz.NpCtx.run();
+pub fn main() !void{
+    try npz.NpCtx.run();
 }

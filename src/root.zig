@@ -1,6 +1,6 @@
 const std = @import("std");
-
 const str = @import("string.zig");
+const c_std = @cImport({@cInclude("stdio.h");});
 
 // const c = @cImport({
 //     @cInclude("stdio.h");
@@ -14,7 +14,9 @@ pub const NpCtx = struct{
     w: f64 = 1080.0,
     h: f64 = 720.0,
 
-    font_size: f64 = 128.0,
+    text: str.String = .{.allocator = std.heap.smp_allocator},
+
+    font_size: f64 = 12.0,
     border_thickness: f64 = 4.0,
 
     text_frame_rect: rl.Rectangle = .{
@@ -47,11 +49,11 @@ pub const NpCtx = struct{
         },
     };
 
-    pub fn run() void {
-        var ctx = NpCtx.init();
+    pub fn run() !void {
+        var ctx = try NpCtx.init();
 
         while(!ctx.should_stop()){
-            ctx.process_user_event();
+            try ctx.process_user_event();
 
             ctx.compute();
 
@@ -62,8 +64,10 @@ pub const NpCtx = struct{
         return;
     }
 
-    fn init() NpCtx {
-        const ctx: NpCtx = .{};
+    fn init() !NpCtx {
+        var ctx: NpCtx = .{};
+
+        try ctx.text.set_allocated_size(10);
 
         rl.InitWindow(@round(ctx.w), @round(ctx.h), "Hello World!");
         rl.SetTargetFPS(60);
@@ -76,17 +80,19 @@ pub const NpCtx = struct{
         return rl.WindowShouldClose();
     }
     
-    fn process_user_event(self: *NpCtx) void {
+    fn process_user_event(self: *NpCtx) !void {
         // Get screen size
         self.w = rl.GetScreenWidth();
         self.h = rl.GetScreenHeight();
 
         // Get character inputs
-        var codepoint: i32 = rl.GetCharPressed();
+        var codepoint: u32 = @bitCast(rl.GetCharPressed());
         while (codepoint != 0) : (codepoint = rl.GetCharPressed()) {
-            var character = [_]u8{0} ** @sizeOf(@TypeOf(codepoint));
-            if (std.unicode.utf8Encode(@intCast(codepoint), &character)) |_| {
-                std.debug.print("{s}\n", .{character});
+            const utf8_len = std.unicode.utf8CodepointSequenceLength(codepoint);
+            var character = [_]u8{0} ** @sizeOf(codepoint);
+            if (std.unicode.utf8Encode(codepoint, &character)) |_| {
+                // std.debug.print("{s}\n", .{character});
+                try self.text.concat(character[0..utf8_len]);
             } else |_| {
                 std.debug.print("Error!\n", .{});
             }
@@ -118,7 +124,17 @@ pub const NpCtx = struct{
         const x: f64 = @rem(rl.GetTime() * 0.5 * 1000.0, self.w);
         const y: f64 = (self.h - self.font_size) / 2.0;
 
-        rl.DrawText("Hello Lili!", @round(x), @round(y), @round(self.font_size), self.colors.primary);
+        rl.DrawText("Hello Lili!", @round(x), @round(y), 128, self.colors.primary);
+
+        rl.DrawText(
+            self.text.as_literal(),
+            @round(self.text_frame_rect.x),
+            @round(self.text_frame_rect.y),
+            @round(self.font_size),
+            self.colors.primary
+        );
+
+        std.debug.print("{any}\n", .{self.text.buffer.?});
     
         rl.EndDrawing();
     }
