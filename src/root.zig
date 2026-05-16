@@ -50,8 +50,6 @@ pub const NpCtx = struct{
     pub fn run() void {
         var ctx = NpCtx.init();
 
-        str.hello();
-
         while(!ctx.should_stop()){
             ctx.process_user_event();
 
