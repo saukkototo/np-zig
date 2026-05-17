@@ -16,7 +16,7 @@ pub const NpCtx = struct{
 
     text: str.String = .{.allocator = std.heap.smp_allocator},
 
-    font_size: f64 = 12.0,
+    font_size: f64 = 24.0,
     border_thickness: f64 = 4.0,
 
     text_frame_rect: rl.Rectangle = .{
@@ -87,15 +87,19 @@ pub const NpCtx = struct{
 
         // Get character inputs
         var codepoint: u32 = @bitCast(rl.GetCharPressed());
-        while (codepoint != 0) : (codepoint = rl.GetCharPressed()) {
-            const utf8_len = std.unicode.utf8CodepointSequenceLength(codepoint);
-            var character = [_]u8{0} ** @sizeOf(codepoint);
-            if (std.unicode.utf8Encode(codepoint, &character)) |_| {
-                // std.debug.print("{s}\n", .{character});
-                try self.text.concat(character[0..utf8_len]);
-            } else |_| {
-                std.debug.print("Error!\n", .{});
-            }
+        while (codepoint != 0) : (codepoint = @bitCast(rl.GetCharPressed())) {
+            try self.text.insert_codepoints(
+                (&@as(u21, @intCast(codepoint)))[0..1],
+                self.text.len
+            );
+            // const utf8_len = try std.unicode.utf8CodepointSequenceLength(@intCast(codepoint));
+            // var character = [_]u8{0} ** @sizeOf(@TypeOf(codepoint));
+            // if (std.unicode.utf8Encode(@intCast(codepoint), &character)) |_| {
+            //     // std.debug.print("{s}\n", .{character});
+            //     try self.text.concat(character[0..utf8_len]);
+            // } else |_| {
+            //     std.debug.print("Error!\n", .{});
+            // }
         }
     }
 
@@ -134,8 +138,6 @@ pub const NpCtx = struct{
             self.colors.primary
         );
 
-        std.debug.print("{any}\n", .{self.text.buffer.?});
-    
         rl.EndDrawing();
     }
 

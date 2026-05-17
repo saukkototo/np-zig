@@ -80,6 +80,18 @@ pub const String = struct {
         buffer.*[self.len] = 0;
     }
 
+    pub fn insert_codepoints(self: *String, codepoints: []const u21, index: usize) !void {
+        // TODO: create a buffer of size 4*codepoints.len and append utf8_char into it
+        // then, at the function end, insert the resulting buffer into the string
+        var offset: usize = 0;
+        for (codepoints) |codepoint| {
+            var utf8_char = [_]u8{0} ** 4; // UTF-8 can take up to 4 bytes
+            const utf8_len = try std.unicode.utf8Encode(codepoint, &utf8_char);
+            try self.insert(utf8_char[0..utf8_len], index+offset);
+            offset += utf8_len;
+        }
+    }
+
     pub fn concat(self: *String, str: []const u8) !void {
         try self.insert(str, self.len);
     }
