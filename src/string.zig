@@ -1,6 +1,7 @@
 const std = @import("std");
 const assert = std.debug.assert;
 const tst = std.testing;
+const uni = std.unicode;
 
 
 const allocator = std.testing.allocator;
@@ -8,8 +9,8 @@ const allocator = std.testing.allocator;
 
 /// A null-terminated string struct to be C compatible
 pub const String = struct {
-    buffer: ?[:0]u8 = null, // Be sure to be null-terminated
-    len: usize = 0,
+    buffer: ?[:0]u8 = null, // UTF8 encoded codepoints
+    len: usize = 0, // Number of UTF8 bytes
     allocator: std.mem.Allocator,
 
     const Error = error {
@@ -83,10 +84,11 @@ pub const String = struct {
     pub fn insert_codepoints(self: *String, codepoints: []const u21, index: usize) !void {
         // TODO: create a buffer of size 4*codepoints.len and append utf8_char into it
         // then, at the function end, insert the resulting buffer into the string
+        // OR pre-compute the required capacity and use set_allocated_size() before inserting it
         var offset: usize = 0;
         for (codepoints) |codepoint| {
             var utf8_char = [_]u8{0} ** 4; // UTF-8 can take up to 4 bytes
-            const utf8_len = try std.unicode.utf8Encode(codepoint, &utf8_char);
+            const utf8_len = try uni.utf8Encode(codepoint, &utf8_char);
             try self.insert(utf8_char[0..utf8_len], index+offset);
             offset += utf8_len;
         }
@@ -94,6 +96,27 @@ pub const String = struct {
 
     pub fn concat(self: *String, str: []const u8) !void {
         try self.insert(str, self.len);
+    }
+
+    /// Remove the last UTF8 char in a string. Returns True if a char has been removed, else returns False.
+    pub fn pop_back(self: *String) bool {
+        if (self.len < 1) return false;
+
+        if (self.buffer) |*buffer| {
+            // From string end, check each byte until we get a successful UTF8 length.
+            // It means we're at the beginning of a valid UTF8 character.
+            while(self.len > 0) {
+                const utf8_len = uni.utf8ByteSequenceLength(buffer.*[self.len - 1]);
+                self.len -= 1;
+                if (utf8_len) |_| { // UT8 char start byte
+                    buffer.*[self.len] = 0; // null-terminated
+                    break;
+                } else |_| {}
+            }
+            // If utf8ByteSequenceLength() never succeed, we still return true
+            // since we erased some bytes.
+            return true;
+        } else return false;
     }
 };
 

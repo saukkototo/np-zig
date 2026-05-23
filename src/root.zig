@@ -92,14 +92,14 @@ pub const NpCtx = struct{
                 (&@as(u21, @intCast(codepoint)))[0..1],
                 self.text.len
             );
-            // const utf8_len = try std.unicode.utf8CodepointSequenceLength(@intCast(codepoint));
-            // var character = [_]u8{0} ** @sizeOf(@TypeOf(codepoint));
-            // if (std.unicode.utf8Encode(@intCast(codepoint), &character)) |_| {
-            //     // std.debug.print("{s}\n", .{character});
-            //     try self.text.concat(character[0..utf8_len]);
-            // } else |_| {
-            //     std.debug.print("Error!\n", .{});
-            // }
+        }
+
+        if (rl.IsKeyPressed(rl.KEY_ENTER)) {
+            try self.text.concat("\n");
+        }
+
+        if (rl.IsKeyPressed(rl.KEY_BACKSPACE)) {
+            _ = self.text.pop_back();
         }
     }
 
