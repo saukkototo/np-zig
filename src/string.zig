@@ -40,18 +40,25 @@ pub const String = struct {
         }
     }
 
+    // Release the string allocated memory
+    // The string can still be used after being free, it'll just be empty.
+    // Inserting stuff inside will allocate a new memory space.
     pub fn free(self: *String) void {
+        self.len = 0;
         if (self.buffer) |buffer| {
             self.allocator.free(buffer);
             self.buffer = null;
         }
     }
 
+    /// Returns the string as a literal
     pub fn as_literal(self: *String) [:0]const u8 {
         if (self.buffer) |buffer| return buffer[0..self.len :0];
         return "";
     }
 
+    /// Insert str at index
+    /// WARNING! Doesn't check if index makes sense in term of UT8 codepoint
     pub fn insert(self: *String, str: []const u8, index: usize) !void {
         if (self.buffer == null) {
             try self.set_allocated_size(str.len);
@@ -81,6 +88,11 @@ pub const String = struct {
         buffer.*[self.len] = 0;
     }
 
+    /// Insert str at the end of string
+    pub fn concat(self: *String, str: []const u8) !void {
+        try self.insert(str, self.len);
+    }
+
     pub fn insert_codepoints(self: *String, codepoints: []const u21, index: usize) !void {
         // TODO: create a buffer of size 4*codepoints.len and append utf8_char into it
         // then, at the function end, insert the resulting buffer into the string
@@ -94,8 +106,8 @@ pub const String = struct {
         }
     }
 
-    pub fn concat(self: *String, str: []const u8) !void {
-        try self.insert(str, self.len);
+    pub fn concat_codepoints(self: *String, codepoints: []const u21) !void {
+        try self.insert_codepoints(codepoints, self.len);
     }
 
     /// Remove the last UTF8 char in a string. Returns True if a char has been removed, else returns False.

@@ -17,13 +17,10 @@ pub const NpCtx = struct{
     text: str.String = .{.allocator = std.heap.smp_allocator},
 
     font_size: f64 = 24.0,
-    border_thickness: f64 = 4.0,
 
-    text_frame_rect: rl.Rectangle = .{
-        .x = 0.0,
-        .y = 0.0,
-        .width = 0.0,
-        .height = 0.0,
+    text_layout: ItemRenderLayout = .{
+        .border = .{.xl = 8.0, .xr = 8.0, .yu = 8.0, .yd = 8.0},
+        .padding = .{.xl = 4.0, .xr = 4.0, .yu = 4.0, .yd = 4.0},
     },
 
     colors: Colors = .{},
@@ -47,6 +44,127 @@ pub const NpCtx = struct{
             .b = 255,
             .a = 255,
         },
+    };
+
+    const ItemRenderLayout = struct {
+        rect: rl.Rectangle = .{
+            .x = 0.0,
+            .y = 0.0,
+            .width = 0.0,
+            .height = 0.0,
+        },
+        margin: RectThickness = .{}, 
+        border: RectThickness = .{}, 
+        padding: RectThickness = .{}, 
+
+        pub fn get_inner_rect(self: *ItemRenderLayout) rl.Rectangle {
+            const thick_left = self.border.xl + self.padding.xl;
+            const thick_right = self.border.xr + self.padding.xr;
+            const thick_up = self.border.yu + self.padding.yu;
+            const thick_down = self.border.yd + self.padding.yd;
+            
+            return .{
+                .x = self.rect.x + thick_left,
+                .y = self.rect.y + thick_up,
+                .width = self.rect.width - thick_left - thick_right,
+                .height = self.rect.height - thick_up - thick_down,
+            };
+        }
+
+        pub fn draw_border(self: *ItemRenderLayout, color: rl.Color) void {
+            //
+            //  p1-----------------------p2
+            //  |                        |
+            //  |  p5-----------------p6 |
+            //  |  |                  |  |
+            //  |  |                  |  |
+            //  |  p8-----------------p7 |
+            //  p4-----------------------p3
+            //
+            const p1: rl.Vector2 = .{
+                .x = self.rect.x,
+                .y = self.rect.y,
+            };
+            const p2: rl.Vector2 = .{
+                .x = self.rect.x + self.rect.width,
+                .y = self.rect.y
+            };
+            const p3: rl.Vector2 = .{
+                .x = self.rect.x + self.rect.width,
+                .y = self.rect.y + self.rect.height
+            };
+            const p4: rl.Vector2 = .{
+                .x = self.rect.x,
+                .y = self.rect.y + self.rect.height,
+            };
+            const p5: rl.Vector2 = .{
+                .x = p1.x + self.border.xl,
+                .y = p1.y + self.border.yu,
+            };
+            const p6: rl.Vector2 = .{
+                .x = p2.x - self.border.xr,
+                .y = p2.y + self.border.yu,
+            };
+            const p7: rl.Vector2 = .{
+                .x = p3.x - self.border.xr,
+                .y = p3.y - self.border.yd,
+            };
+            const p8: rl.Vector2 = .{
+                .x = p4.x + self.border.xl,
+                .y = p4.y - self.border.yd,
+            };
+
+            if (self.border.yu > 0.0) {
+                var tri_up = [_]rl.Vector2{
+                    p6,
+                    p2,
+                    p1,
+                    p5,
+                    p6,
+                };
+                rl.DrawTriangleStrip(&tri_up, tri_up.len, color);
+            }
+
+            if (self.border.xr > 0.0) {
+                var tri_right = [_]rl.Vector2{
+                    p7,
+                    p3,
+                    p2,
+                    p6,
+                    p7,
+                };
+                rl.DrawTriangleStrip(&tri_right, tri_right.len, color);
+            }
+
+            if (self.border.yd > 0.0) {
+                var tri_down = [_]rl.Vector2{
+                    p8,
+                    p4,
+                    p3,
+                    p7,
+                    p8,
+                };
+                rl.DrawTriangleStrip(&tri_down, tri_down.len, color);
+            }
+
+            if (self.border.xl > 0.0) {
+                var tri_left = [_]rl.Vector2{
+                    p5,
+                    p1,
+                    p4,
+                    p8,
+                    p5,
+                };
+                rl.DrawTriangleStrip(&tri_left, tri_left.len, color);
+            }
+        }
+    };
+
+    const RectThickness = struct {
+        xl: f32 = 0.0, // X Left
+        xr: f32 = 0.0, // X Right
+        yu: f32 = 0.0, // Y Up
+        yd: f32 = 0.0, // Y Down
     };
 
     pub fn run() !void {
@@ -105,7 +223,7 @@ pub const NpCtx = struct{
 
     fn compute(self: *NpCtx) void {
         const text_frame_rect_y_offset: f64 = 100;
-        self.text_frame_rect = .{
+        self.text_layout.rect = .{
             .x = 0.0,
             .y = @floatCast(text_frame_rect_y_offset),
             .width = @floatCast(self.w),
@@ -119,22 +237,26 @@ pub const NpCtx = struct{
         rl.ClearBackground(self.colors.secondary);
 
         // Draw text frame rectangle
-        rl.DrawRectangleLinesEx(
-            self.text_frame_rect,
-            @floatCast(self.border_thickness),
-            self.colors.accent
-        );
+        self.text_layout.draw_border(self.colors.accent);
 
+        // Draw scrolling text
         const x: f64 = @rem(rl.GetTime() * 0.5 * 1000.0, self.w);
         const y: f64 = (self.h - self.font_size) / 2.0;
-
         rl.DrawText("Hello Lili!", @round(x), @round(y), 128, self.colors.primary);
 
-        rl.DrawText(
+        // Draw text
+        const text_draw_area = self.text_layout.get_inner_rect();
+
+        rl.SetTextLineSpacing(@round(self.font_size));
+        rl.DrawTextEx(
+            rl.GetFontDefault(),
             self.text.as_literal(),
-            @round(self.text_frame_rect.x),
-            @round(self.text_frame_rect.y),
-            @round(self.font_size),
+            .{
+                .x = text_draw_area.x,
+                .y = text_draw_area.y,
+            },
+            @floatCast(self.font_size),
+            10.0,
             self.colors.primary
         );
 
